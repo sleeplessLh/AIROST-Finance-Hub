@@ -61,3 +61,17 @@ def test_complete_claim_workflow():
                                                     "transaction_reference": "TXN-001"}, follow_redirects=True)
     assert b"Paid" in response.data
 
+
+def test_admin_and_treasurer_can_adjust_event_budget():
+    client = app.test_client()
+    login(client, "T1")
+    response = client.post("/events/1/budget", data={"budget": "1500"}, follow_redirects=True)
+    assert b"budget updated to RM 1500.00" in response.data
+    client.get("/logout")
+    login(client, "A1")
+    response = client.post("/events/1/budget", data={"budget": "1800"}, follow_redirects=True)
+    assert b"budget updated to RM 1800.00" in response.data
+    client.get("/logout")
+    login(client, "M1")
+    assert client.post("/events/1/budget", data={"budget": "2000"}).status_code == 403
+

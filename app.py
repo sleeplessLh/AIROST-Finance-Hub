@@ -388,6 +388,27 @@ def admin_events():
     return render_template("admin_events.html", events=Event.query.order_by(Event.created_at.desc()).all())
 
 
+@app.route("/events/<int:event_id>/budget", methods=["POST"])
+@roles_required("admin", "treasurer")
+def update_event_budget(event_id):
+    event = Event.query.get_or_404(event_id)
+    try:
+        new_budget = float(request.form["budget"])
+    except (KeyError, ValueError):
+        flash("Enter a valid budget amount.", "danger")
+        return redirect(request.referrer or url_for("dashboard"))
+    committed = event.paid_total + event.committed_total
+    if new_budget < committed:
+        flash(f"Budget cannot be lower than RM {committed:.2f}, which is already committed or paid.", "danger")
+        return redirect(request.referrer or url_for("dashboard"))
+    old_budget = event.budget
+    event.budget = new_budget
+    audit("event_budget_adjusted", f"{event.name}: RM {old_budget:.2f} → RM {new_budget:.2f}")
+    db.session.commit()
+    flash(f"{event.name} budget updated to RM {new_budget:.2f}.", "success")
+    return redirect(request.referrer or url_for("dashboard"))
+
+
 @app.route("/uploads/<path:filename>")
 @login_required
 def uploaded_file(filename):
