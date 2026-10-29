@@ -1,0 +1,2 @@
+{% extends 'base.html' %}{% block content %}<div class="error-page"><strong>{{ code }}</strong><h1>Something went off budget.</h1><p>{{ message }}</p><a class="btn primary" href="{{ url_for('dashboard') if current_user.is_authenticated else url_for('login') }}">Return to safety</a></div>{% endblock %}
+

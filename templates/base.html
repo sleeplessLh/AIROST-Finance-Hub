@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}AIROST Finance Hub{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="{% block body_class %}{% endblock %}">
+{% if current_user.is_authenticated %}
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="{{ url_for('dashboard') }}"><span class="brand-mark">A</span><span>AIROST<small>Finance Hub</small></span></a>
+    <nav>
+      <a class="{{ 'active' if request.endpoint == 'dashboard' }}" href="{{ url_for('dashboard') }}"><span>⌂</span> Overview</a>
+      {% if current_user.role == 'member' %}<a class="{{ 'active' if request.endpoint in ['new_claim','claim_detail','edit_claim'] }}" href="{{ url_for('new_claim') }}"><span>＋</span> New claim</a>{% endif %}
+      {% if current_user.role == 'admin' %}
+      <a class="{{ 'active' if request.endpoint == 'admin_users' }}" href="{{ url_for('admin_users') }}"><span>◎</span> Members</a>
+      <a class="{{ 'active' if request.endpoint == 'admin_events' }}" href="{{ url_for('admin_events') }}"><span>▦</span> Events & budgets</a>
+      {% endif %}
+      <a class="{{ 'active' if request.endpoint == 'profile' }}" href="{{ url_for('profile') }}"><span>♙</span> My profile</a>
+    </nav>
+    <div class="sidebar-foot"><div class="avatar">{{ current_user.name[0] }}</div><div><strong>{{ current_user.name }}</strong><small>{{ current_user.role|title }} · {{ current_user.club_id }}</small></div><a href="{{ url_for('logout') }}" title="Sign out">↗</a></div>
+  </aside>
+  <main class="main"><header class="mobile-head"><button onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button><span>AIROST Finance</span></header>
+{% endif %}
+  {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}<div class="flash-stack">{% for category,message in messages %}<div class="flash {{ category }}">{{ message }}<button onclick="this.parentElement.remove()">×</button></div>{% endfor %}</div>{% endif %}{% endwith %}
+  {% block content %}{% endblock %}
+{% if current_user.is_authenticated %}</main></div>{% endif %}
+<script src="{{ url_for('static', filename='app.js') }}"></script>{% block scripts %}{% endblock %}
+</body></html>
+
