@@ -2,6 +2,7 @@ import io
 import os
 import shutil
 from pathlib import Path
+from unittest.mock import patch
 
 os.environ["FLASK_ENV"] = "testing"
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
@@ -134,4 +135,41 @@ def test_admin_account_validation_and_self_protection():
     assert b"cannot remove your own administrator access" in response.data
     response = client.post("/admin/users/3/toggle", follow_redirects=True)
     assert b"cannot deactivate your own account" in response.data
+
+
+def test_member_can_analyse_receipt_and_roles_are_enforced():
+    extracted = {
+        "merchant": "Campus Shop", "purchase_date": "2026-10-30", "amount": 48.9,
+        "category": "Equipment", "title": "Workshop components",
+        "description": "Electronic components for the AI workshop.",
+        "receipt_number": "R-100", "confidence": 0.94,
+    }
+    client = app.test_client()
+    login(client, "M1")
+    with patch("app.extract_receipt_data", return_value=extracted):
+        response = client.post("/ai/receipt/analyse", data={
+            "receipt": (io.BytesIO(b"receipt image"), "receipt.jpg"),
+        }, content_type="multipart/form-data")
+    assert response.status_code == 200
+    assert response.get_json() == extracted
+    client.get("/logout")
+    login(client, "T1")
+    response = client.post("/ai/receipt/analyse", data={
+        "receipt": (io.BytesIO(b"receipt image"), "receipt.jpg"),
+    }, content_type="multipart/form-data")
+    assert response.status_code == 403
+
+
+def test_receipt_analysis_has_graceful_configuration_and_file_errors():
+    client = app.test_client()
+    login(client, "M1")
+    response = client.post("/ai/receipt/analyse", data={}, content_type="multipart/form-data")
+    assert response.status_code == 400
+    assert b"Choose a receipt" in response.data
+    with patch.dict(os.environ, {"GEMINI_API_KEY": ""}):
+        response = client.post("/ai/receipt/analyse", data={
+            "receipt": (io.BytesIO(b"receipt image"), "receipt.jpg"),
+        }, content_type="multipart/form-data")
+    assert response.status_code == 503
+    assert b"not configured" in response.data
 

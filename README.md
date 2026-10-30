@@ -10,6 +10,7 @@ AIROST Finance Hub is a responsive club budget and reimbursement web application
 - Complete payee banking details for authorised finance users
 - Event budget allocation and live committed/remaining totals
 - Administrator account creation, editing, role assignment, password reset and safe deactivation
+- AI receipt analysis that suggests merchant, date, amount, category and description while keeping users in control
 - Search, filters, audit trail, responsive mobile layout and graceful empty/error states
 - SQLite for local development and PostgreSQL-ready production configuration
 
@@ -23,6 +24,17 @@ python app.py
 ```
 
 Open `http://127.0.0.1:5000`.
+
+### Optional AI receipt assistant
+
+Create a Gemini API key in Google AI Studio and provide it only as an environment variable:
+
+```powershell
+$env:GEMINI_API_KEY="your-key"
+$env:GEMINI_MODEL="gemini-3.5-flash-lite"
+```
+
+Never commit the API key. Without it, the reimbursement workflow remains fully usable and the AI button returns a clear configuration message. AI suggestions must be reviewed by the member before submission.
 
 ### Demo accounts
 
