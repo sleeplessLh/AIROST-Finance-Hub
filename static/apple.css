@@ -53,3 +53,7 @@ td{padding:18px 27px;border-top:1px solid rgba(0,0,0,.055)}
 .error-page>strong{color:#e8e8ed}
 @media(max-width:950px){.main{padding:88px 22px 60px}.mobile-head{background:rgba(251,251,253,.86);backdrop-filter:blur(20px)}.page-head h1{font-size:36px}.sidebar{transform:translateX(-100%)}.sidebar.open{transform:none;box-shadow:20px 0 60px rgba(0,0,0,.12)}}
 @media(max-width:600px){.main{padding-left:15px;padding-right:15px}.page-head{margin-bottom:28px}.page-head h1{font-size:31px;letter-spacing:-1.2px}.stats{gap:10px}.stat{min-height:auto;padding:20px}.card,.stat{border-radius:19px}.form-card{padding:22px}.header-actions{margin-top:16px}.login-form{padding:24px}.form-heading h2{font-size:32px}}
+
+/* Account administration */
+.form-intro{margin:7px 0 0;color:#86868b;font-size:12px;line-height:1.5}.stack label small,.account-edit-form label small{display:block;margin-top:7px;color:#86868b;font-size:11px;line-height:1.45}.user-actions{display:flex;align-items:center;gap:12px;white-space:nowrap}.user-actions form{margin:0}.user-actions .text-btn{padding:0}.user-actions .deactivate{color:#b42318}.self-label{font-size:10px;color:#86868b}.account-edit-form{max-width:780px}.account-edit-form .section-title{margin-bottom:26px}.account-edit-form .section-title>span{width:48px;height:48px;font-size:17px}.page-head .back+.eyebrow{display:block;margin-top:18px}
+@media(max-width:700px){.user-actions{align-items:flex-start;flex-direction:column;gap:7px}.account-edit-form .form-actions{display:flex}}

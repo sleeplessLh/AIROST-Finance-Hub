@@ -1,0 +1,14 @@
+{% extends 'base.html' %}{% block content %}
+<div class="page-head"><div><a class="back" href="{{ url_for('admin_users') }}">← Back to members</a><span class="eyebrow">Account administration</span><h1>Edit {{ user.name }}</h1><p>Update identity, access level or issue a new password.</p></div></div>
+<form method="post" class="card profile-form account-edit-form">
+  <div class="section-title"><span>{{ user.name[0] }}</span><div><h2>{{ user.club_id }}</h2><p>{{ 'Active' if user.active else 'Inactive' }} · Created {{ user.created_at.strftime('%d %b %Y') }}</p></div></div>
+  <div class="form-grid">
+    <label>AIROST ID<input name="club_id" value="{{ user.club_id }}" required></label>
+    <label>Full name<input name="name" value="{{ user.name }}" required></label>
+    <label>Email address<input type="email" name="email" value="{{ user.email }}" required></label>
+    <label>Role<select name="role" {% if user.id == current_user.id %}aria-describedby="role-note"{% endif %}>{% for value,label in [('member','Member'),('treasurer','Treasurer'),('admin','Administrator')] %}<option value="{{ value }}" {{ 'selected' if user.role == value }}>{{ label }}</option>{% endfor %}</select>{% if user.id == current_user.id %}<small id="role-note">Your own administrator access cannot be removed.</small>{% endif %}</label>
+    <div class="span-2 divider"><strong>Password reset</strong><span>Leave blank to keep the current password.</span></div>
+    <label class="span-2">New temporary password<input type="password" name="password" minlength="8" autocomplete="new-password" placeholder="At least 8 characters"><small>The user can sign in with this password immediately after saving.</small></label>
+  </div>
+  <div class="form-actions"><a class="btn secondary" href="{{ url_for('admin_users') }}">Cancel</a><button class="btn primary" type="submit">Save account changes</button></div>
+</form>{% endblock %}

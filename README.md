@@ -9,6 +9,7 @@ AIROST Finance Hub is a responsive club budget and reimbursement web application
 - Item photo and supporting-document uploads
 - Complete payee banking details for authorised finance users
 - Event budget allocation and live committed/remaining totals
+- Administrator account creation, editing, role assignment, password reset and safe deactivation
 - Search, filters, audit trail, responsive mobile layout and graceful empty/error states
 - SQLite for local development and PostgreSQL-ready production configuration
 
@@ -63,3 +64,5 @@ Draft → Submitted (locked) → Rejected → Edit and resubmit
 ```
 
 Submitted claims cannot be edited. A rejected claim becomes editable again and locks on resubmission.
+
+User accounts with financial history are deactivated rather than deleted, preserving reimbursement and audit records.

@@ -149,6 +149,32 @@ def audit(action, details="", claim=None):
     db.session.add(AuditLog(action=action, details=details, user_id=current_user.id, claim_id=claim.id if claim else None))
 
 
+USER_ROLES = {"member", "treasurer", "admin"}
+
+
+def normalise_account_form(form):
+    club_id = form.get("club_id", "").strip().upper()
+    name = form.get("name", "").strip()
+    email = form.get("email", "").strip().lower()
+    role = form.get("role", "").strip().lower()
+    if not club_id or not name or not email:
+        raise ValueError("AIROST ID, full name and email are required.")
+    if role not in USER_ROLES:
+        raise ValueError("Select a valid account role.")
+    return club_id, name, email, role
+
+
+def account_conflict(club_id, email, exclude_user_id=None):
+    query = User.query
+    if exclude_user_id is not None:
+        query = query.filter(User.id != exclude_user_id)
+    if query.filter(func.lower(User.club_id) == club_id.lower()).first():
+        return "That AIROST ID already exists."
+    if query.filter(func.lower(User.email) == email.lower()).first():
+        return "That email address is already in use."
+    return None
+
+
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -346,18 +372,56 @@ def pay_claim(claim_id):
 @roles_required("admin")
 def admin_users():
     if request.method == "POST":
-        if User.query.filter_by(club_id=request.form["club_id"].strip()).first():
-            flash("That AIROST ID already exists.", "danger")
-        else:
-            user = User(club_id=request.form["club_id"].strip(), name=request.form["name"].strip(),
-                        email=request.form["email"].strip(), role=request.form["role"])
-            user.set_password(request.form["password"])
+        try:
+            club_id, name, email, role = normalise_account_form(request.form)
+            password = request.form.get("password", "")
+            if len(password) < 8:
+                raise ValueError("Temporary password must contain at least 8 characters.")
+            conflict = account_conflict(club_id, email)
+            if conflict:
+                raise ValueError(conflict)
+            user = User(club_id=club_id, name=name, email=email, role=role)
+            user.set_password(password)
             db.session.add(user)
             audit("user_created", f"{user.club_id} · {user.role}")
             db.session.commit()
             flash("Account created.", "success")
+        except ValueError as exc:
+            db.session.rollback()
+            flash(str(exc), "danger")
         return redirect(url_for("admin_users"))
     return render_template("admin_users.html", users=User.query.order_by(User.created_at.desc()).all())
+
+
+@app.route("/admin/users/<int:user_id>/edit", methods=["GET", "POST"])
+@roles_required("admin")
+def edit_user(user_id):
+    user = User.query.get_or_404(user_id)
+    if request.method == "POST":
+        try:
+            club_id, name, email, role = normalise_account_form(request.form)
+            if user.id == current_user.id and role != "admin":
+                raise ValueError("You cannot remove your own administrator access.")
+            conflict = account_conflict(club_id, email, exclude_user_id=user.id)
+            if conflict:
+                raise ValueError(conflict)
+            old_summary = f"{user.club_id} · {user.name} · {user.email} · {user.role}"
+            user.club_id, user.name, user.email, user.role = club_id, name, email, role
+            password = request.form.get("password", "")
+            if password:
+                if len(password) < 8:
+                    raise ValueError("New password must contain at least 8 characters.")
+                user.set_password(password)
+            audit("user_updated", f"{old_summary} → {user.club_id} · {user.name} · {user.email} · {user.role}")
+            if password:
+                audit("user_password_reset", user.club_id)
+            db.session.commit()
+            flash("Account updated successfully.", "success")
+            return redirect(url_for("admin_users"))
+        except ValueError as exc:
+            db.session.rollback()
+            flash(str(exc), "danger")
+    return render_template("admin_user_edit.html", user=user)
 
 
 @app.route("/admin/users/<int:user_id>/toggle", methods=["POST"])

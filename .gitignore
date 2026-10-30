@@ -10,4 +10,5 @@ htmlcov/
 .coverage
 work/
 tests/*.db
+tests/.tmp_uploads/
 

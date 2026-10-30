@@ -16,7 +16,7 @@
       <a class="{{ 'active' if request.endpoint == 'dashboard' }}" href="{{ url_for('dashboard') }}"><span>⌂</span> Overview</a>
       {% if current_user.role == 'member' %}<a class="{{ 'active' if request.endpoint in ['new_claim','claim_detail','edit_claim'] }}" href="{{ url_for('new_claim') }}"><span>＋</span> New claim</a>{% endif %}
       {% if current_user.role == 'admin' %}
-      <a class="{{ 'active' if request.endpoint == 'admin_users' }}" href="{{ url_for('admin_users') }}"><span>◎</span> Members</a>
+      <a class="{{ 'active' if request.endpoint in ['admin_users','edit_user'] }}" href="{{ url_for('admin_users') }}"><span>◎</span> Members</a>
       <a class="{{ 'active' if request.endpoint == 'admin_events' }}" href="{{ url_for('admin_events') }}"><span>▦</span> Events & budgets</a>
       {% endif %}
       <a class="{{ 'active' if request.endpoint == 'profile' }}" href="{{ url_for('profile') }}"><span>♙</span> My profile</a>

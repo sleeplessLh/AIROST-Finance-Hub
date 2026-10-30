@@ -1,20 +1,19 @@
 import io
 import os
+import shutil
 from pathlib import Path
-
-TEST_DB = Path(__file__).parent / "test.db"
-os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB.as_posix()}"
-os.environ["FLASK_ENV"] = "testing"
-import os
 
 os.environ["FLASK_ENV"] = "testing"
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
-from app import Event, User, app, db
+from app import AuditLog, Event, User, app, db
+
+TEST_UPLOADS = Path(__file__).parent / ".tmp_uploads"
 
 
 def setup_module():
-    app.config.update(TESTING=True, WTF_CSRF_ENABLED=False)
+    TEST_UPLOADS.mkdir(parents=True, exist_ok=True)
+    app.config.update(TESTING=True, WTF_CSRF_ENABLED=False, UPLOAD_FOLDER=str(TEST_UPLOADS))
     with app.app_context():
         db.create_all()
         member = User(club_id="M1", name="Member One", email="m@test.com", role="member",
@@ -26,6 +25,13 @@ def setup_module():
         admin.set_password("password")
         db.session.add_all([member, treasurer, admin, Event(name="Test Event", budget=1000, status="active")])
         db.session.commit()
+
+
+def teardown_module():
+    with app.app_context():
+        db.session.remove()
+        db.drop_all()
+    shutil.rmtree(TEST_UPLOADS, ignore_errors=True)
 
 
 def login(client, club_id):
@@ -74,4 +80,58 @@ def test_admin_and_treasurer_can_adjust_event_budget():
     client.get("/logout")
     login(client, "M1")
     assert client.post("/events/1/budget", data={"budget": "2000"}).status_code == 403
+
+
+def test_admin_can_create_edit_reset_and_deactivate_user():
+    client = app.test_client()
+    login(client, "A1")
+    response = client.post("/admin/users", data={
+        "club_id": "air-m002", "name": "New Member", "email": "new@airost.club",
+        "role": "member", "password": "Initial123!",
+    }, follow_redirects=True)
+    assert b"Account created" in response.data
+    with app.app_context():
+        user = User.query.filter_by(club_id="AIR-M002").one()
+        user_id = user.id
+    edit_page = client.get(f"/admin/users/{user_id}/edit")
+    assert edit_page.status_code == 200
+    assert b"Edit New Member" in edit_page.data
+
+    response = client.post(f"/admin/users/{user_id}/edit", data={
+        "club_id": "AIR-T002", "name": "Updated Member", "email": "updated@airost.club",
+        "role": "treasurer", "password": "Changed123!",
+    }, follow_redirects=True)
+    assert b"Account updated successfully" in response.data
+    with app.app_context():
+        user = db.session.get(User, user_id)
+        assert user.club_id == "AIR-T002"
+        assert user.role == "treasurer"
+        assert user.check_password("Changed123!")
+        actions = {log.action for log in AuditLog.query.all()}
+        assert {"user_created", "user_updated", "user_password_reset"}.issubset(actions)
+
+    response = client.post(f"/admin/users/{user_id}/toggle", follow_redirects=True)
+    assert response.status_code == 200
+    with app.app_context():
+        assert db.session.get(User, user_id).active is False
+    client.get("/logout")
+    response = client.post("/login", data={"club_id": "AIR-T002", "password": "Changed123!"}, follow_redirects=True)
+    assert b"Invalid AIROST ID or password" in response.data
+
+
+def test_admin_account_validation_and_self_protection():
+    client = app.test_client()
+    login(client, "A1")
+    response = client.post("/admin/users", data={
+        "club_id": "M1", "name": "Duplicate", "email": "other@test.com",
+        "role": "member", "password": "Password123!",
+    }, follow_redirects=True)
+    assert b"AIROST ID already exists" in response.data
+    response = client.post("/admin/users/3/edit", data={
+        "club_id": "A1", "name": "Admin", "email": "a@test.com",
+        "role": "member", "password": "",
+    }, follow_redirects=True)
+    assert b"cannot remove your own administrator access" in response.data
+    response = client.post("/admin/users/3/toggle", follow_redirects=True)
+    assert b"cannot deactivate your own account" in response.data
 
