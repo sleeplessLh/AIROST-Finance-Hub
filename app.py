@@ -6,7 +6,7 @@ import os
 import urllib.error
 import urllib.request
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 from pathlib import Path
 
@@ -21,6 +21,11 @@ BASE_DIR = Path(__file__).resolve().parent
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "pdf"}
 AI_RECEIPT_MIMES = {"image/png", "image/jpeg", "image/webp", "application/pdf"}
 CLAIM_CATEGORIES = ["Food & Beverage", "Equipment", "Transport", "Marketing", "Venue", "Software", "Other"]
+
+
+def utc_now():
+    """Return naive UTC for database columns that do not store timezone data."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 app = Flask(__name__)
 database_url = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'instance' / 'airost.db'}")
@@ -54,7 +59,7 @@ class User(UserMixin, db.Model):
     bank_name = db.Column(db.String(100), default="")
     bank_account_name = db.Column(db.String(100), default="")
     bank_account_number = db.Column(db.String(60), default="")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utc_now)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -74,7 +79,7 @@ class Event(db.Model):
     budget = db.Column(db.Float, nullable=False, default=0)
     start_date = db.Column(db.Date, nullable=True)
     status = db.Column(db.String(20), default="active")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utc_now)
 
     @property
     def paid_total(self):
@@ -103,7 +108,7 @@ class Claim(db.Model):
     paid_amount = db.Column(db.Float, nullable=True)
     paid_date = db.Column(db.Date, nullable=True)
     transaction_reference = db.Column(db.String(100), default="")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utc_now)
     submitted_at = db.Column(db.DateTime, nullable=True)
     reviewed_at = db.Column(db.DateTime, nullable=True)
     paid_at = db.Column(db.DateTime, nullable=True)
@@ -128,7 +133,7 @@ class AuditLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     action = db.Column(db.String(80), nullable=False)
     details = db.Column(db.Text, default="")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utc_now)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     claim_id = db.Column(db.Integer, db.ForeignKey("claim.id"), nullable=True)
     user = db.relationship("User")
@@ -355,7 +360,7 @@ def new_claim():
                 document = request.files.get("supporting_document")
                 if not photo or not photo.filename or not document or not document.filename:
                     raise ValueError("An item photo and a supporting document are required to submit.")
-                claim.submitted_at = datetime.utcnow()
+                claim.submitted_at = utc_now()
             db.session.add(claim)
             db.session.flush()
             save_upload(request.files.get("item_photo"), "item_photo", claim)
@@ -388,7 +393,7 @@ def analyse_receipt():
 @app.route("/claims/<int:claim_id>/edit", methods=["GET", "POST"])
 @roles_required("member")
 def edit_claim(claim_id):
-    claim = Claim.query.get_or_404(claim_id)
+    claim = db.get_or_404(Claim, claim_id)
     if claim.member_id != current_user.id or claim.status not in {"draft", "rejected"}:
         abort(403)
     events = Event.query.filter_by(status="active").all()
@@ -409,7 +414,7 @@ def edit_claim(claim_id):
                 if not {"item_photo", "supporting_document"}.issubset(kinds):
                     raise ValueError("An item photo and a supporting document are required to submit.")
                 claim.status = "submitted"
-                claim.submitted_at = datetime.utcnow()
+                claim.submitted_at = utc_now()
                 claim.rejection_reason = ""
                 audit("claim_resubmitted", claim.reference, claim)
             else:
@@ -426,7 +431,7 @@ def edit_claim(claim_id):
 @app.route("/claims/<int:claim_id>")
 @login_required
 def claim_detail(claim_id):
-    claim = Claim.query.get_or_404(claim_id)
+    claim = db.get_or_404(Claim, claim_id)
     if current_user.role == "member" and claim.member_id != current_user.id:
         abort(403)
     logs = AuditLog.query.filter_by(claim_id=claim.id).order_by(AuditLog.created_at.desc()).all()
@@ -436,7 +441,7 @@ def claim_detail(claim_id):
 @app.route("/claims/<int:claim_id>/review", methods=["POST"])
 @roles_required("treasurer")
 def review_claim(claim_id):
-    claim = Claim.query.get_or_404(claim_id)
+    claim = db.get_or_404(Claim, claim_id)
     if claim.status != "submitted":
         abort(400)
     decision = request.form["decision"]
@@ -455,7 +460,7 @@ def review_claim(claim_id):
         audit("claim_rejected", reason, claim)
         flash("Claim rejected. The member may now edit it.", "warning")
     claim.reviewed_by_id = current_user.id
-    claim.reviewed_at = datetime.utcnow()
+    claim.reviewed_at = utc_now()
     db.session.commit()
     return redirect(url_for("claim_detail", claim_id=claim.id))
 
@@ -463,14 +468,14 @@ def review_claim(claim_id):
 @app.route("/claims/<int:claim_id>/pay", methods=["POST"])
 @roles_required("treasurer")
 def pay_claim(claim_id):
-    claim = Claim.query.get_or_404(claim_id)
+    claim = db.get_or_404(Claim, claim_id)
     if claim.status != "pending_payment":
         abort(400)
     claim.paid_amount = float(request.form["paid_amount"])
     claim.paid_date = datetime.strptime(request.form["paid_date"], "%Y-%m-%d").date()
     claim.transaction_reference = request.form["transaction_reference"].strip()
     claim.status = "paid"
-    claim.paid_at = datetime.utcnow()
+    claim.paid_at = utc_now()
     audit("claim_paid", f"RM {claim.paid_amount:.2f} · {claim.transaction_reference}", claim)
     db.session.commit()
     flash("Payment recorded successfully.", "success")
@@ -505,7 +510,7 @@ def admin_users():
 @app.route("/admin/users/<int:user_id>/edit", methods=["GET", "POST"])
 @roles_required("admin")
 def edit_user(user_id):
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
     if request.method == "POST":
         try:
             club_id, name, email, role = normalise_account_form(request.form)
@@ -536,7 +541,7 @@ def edit_user(user_id):
 @app.route("/admin/users/<int:user_id>/toggle", methods=["POST"])
 @roles_required("admin")
 def toggle_user(user_id):
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
     if user.id == current_user.id:
         flash("You cannot deactivate your own account.", "danger")
     else:
@@ -564,7 +569,7 @@ def admin_events():
 @app.route("/events/<int:event_id>/budget", methods=["POST"])
 @roles_required("admin", "treasurer")
 def update_event_budget(event_id):
-    event = Event.query.get_or_404(event_id)
+    event = db.get_or_404(Event, event_id)
     try:
         new_budget = float(request.form["budget"])
     except (KeyError, ValueError):
@@ -618,7 +623,7 @@ def not_found(_):
 def template_helpers():
     labels = {"draft": "Draft", "submitted": "Pending review", "rejected": "Rejected", "approved": "Approved",
               "pending_payment": "Pending payment", "paid": "Paid"}
-    return {"status_labels": labels, "now": datetime.now}
+    return {"status_labels": labels, "claim_categories": CLAIM_CATEGORIES, "now": datetime.now}
 
 
 def seed_demo_data():

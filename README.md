@@ -19,7 +19,7 @@ AIROST Finance Hub is a responsive club budget and reimbursement web application
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 python app.py
 ```
 
@@ -36,6 +36,15 @@ $env:GEMINI_MODEL="gemini-3.5-flash-lite"
 
 Never commit the API key. Without it, the reimbursement workflow remains fully usable and the AI button returns a clear configuration message. AI suggestions must be reviewed by the member before submission.
 
+### Environment variables
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `SECRET_KEY` | Production | Signs login sessions; use a long random value |
+| `DATABASE_URL` | Production | PostgreSQL connection supplied by Render |
+| `GEMINI_API_KEY` | AI only | Authorises receipt analysis; never commit it |
+| `GEMINI_MODEL` | No | Defaults to `gemini-3.5-flash-lite` |
+
 ### Demo accounts
 
 | Role | AIROST ID | Password |
@@ -49,7 +58,7 @@ The database and demo accounts are created automatically on first run.
 ## Tests
 
 ```powershell
-pytest -q
+.venv\Scripts\python -m pytest -q
 ```
 
 ## Production deployment
@@ -66,6 +75,8 @@ templates/         Jinja pages for all roles
 static/            Responsive styles and interactions
 tests/             End-to-end Flask workflow tests
 render.yaml        Render service/database definition
+requirements.txt   Production dependencies
+requirements-dev.txt Local development and test dependencies
 ```
 
 ## Core workflow

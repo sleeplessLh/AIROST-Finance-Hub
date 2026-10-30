@@ -14,7 +14,7 @@ TEST_UPLOADS = Path(__file__).parent / ".tmp_uploads"
 
 def setup_module():
     TEST_UPLOADS.mkdir(parents=True, exist_ok=True)
-    app.config.update(TESTING=True, WTF_CSRF_ENABLED=False, UPLOAD_FOLDER=str(TEST_UPLOADS))
+    app.config.update(TESTING=True, UPLOAD_FOLDER=str(TEST_UPLOADS))
     with app.app_context():
         db.create_all()
         member = User(club_id="M1", name="Member One", email="m@test.com", role="member",

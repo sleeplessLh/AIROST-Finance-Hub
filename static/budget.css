@@ -1,5 +1,0 @@
-.budget-adjust{display:flex;align-items:end;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
-.budget-adjust label{flex:1;font-size:10px;text-transform:uppercase;letter-spacing:.5px}
-.budget-adjust input{padding:8px 10px;background:#f8faf9}
-.budget-adjust .btn{padding:9px 13px}
-@media(max-width:600px){.budget-adjust{align-items:stretch;flex-direction:column}.budget-adjust .btn{width:100%}}
